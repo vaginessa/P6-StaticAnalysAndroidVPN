@@ -30,7 +30,7 @@ namespace StatiskAnalyse
             rb.AppendLine("Analysis of '" + Name + "'\n");
 
             var founds = Results.Where(r => r.Uses.Count != 0).OrderBy(r => r.Pattern);
-            var notfounds = Results.Where(r => r.Uses.Count == 0).OrderBy(r => r.Pattern); ;
+            var notFounds = Results.Where(r => r.Uses.Count == 0).OrderBy(r => r.Pattern); ;
 
             foreach (var searchResult in founds)
             {
@@ -40,8 +40,8 @@ namespace StatiskAnalyse
                 rb.AppendLine();
             }
 
-            if (notfounds.Any()) rb.AppendLine("\nNo results found for:");
-            foreach (var searchResult in notfounds)
+            if (notFounds.Any()) rb.AppendLine("\nNo results found for:");
+            foreach (var searchResult in notFounds)
                 rb.AppendLine("\t" + searchResult.Pattern);
             File.WriteAllText(Path.Combine(ReportPath, Name + ".txt"), rb.ToString());
         }
@@ -122,7 +122,7 @@ namespace StatiskAnalyse
                 var zipEntry = zf.GetEntry("classes.dex");
                 var buffer = new byte[4096];
                 var zipStream = zf.GetInputStream(zipEntry);
-                dp = Path.Combine(TempPath, dp + "-classes.dex");
+                dp = Path.Combine(Path.GetFullPath(TempPath), dp + "-classes.dex");
                 using (var streamWriter = File.Create(dp))
                     StreamUtils.Copy(zipStream, streamWriter, buffer);
             }
