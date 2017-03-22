@@ -96,7 +96,7 @@ namespace StatiskAnalyse
         {
             if (!File.Exists(classesDex))
                 throw new FileNotFoundException("Not found", classesDex);
-            var cmd = $"\"{classesDex}\" -d \"{outPath}\"";
+            var cmd = $"\"{classesDex}\" -d \"{Path.GetFullPath(outPath)}\"";
             var pstart = new ProcessStartInfo(Path.GetFullPath(JadxPath))
             {
                 Arguments = cmd,
