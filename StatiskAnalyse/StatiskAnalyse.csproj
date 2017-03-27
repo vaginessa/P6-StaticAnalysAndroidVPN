@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AndroidDecompress.cs" />
     <Compile Include="ApkAnalyzer.cs" />
     <Compile Include="ClassFile.cs" />
     <Compile Include="ClassFileDirectory.cs" />

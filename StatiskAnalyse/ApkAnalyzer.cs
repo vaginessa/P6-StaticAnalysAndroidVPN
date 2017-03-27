@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -12,48 +13,7 @@ namespace StatiskAnalyse
 {
     class ApkAnalysis
     {
-        #region Permissions
-
-        private static string[] _androidPermissions = {
-            "ACCESS_LOCATION_EXTRA_COMMANDS",
-            "ACCESS_NETWORK_STATE",
-            "ACCESS_NOTIFICATION_POLICY",
-            "ACCESS_WIFI_STATE",
-            "BLUETOOTH",
-            "BLUETOOTH_ADMIN",
-            "BROADCAST_STICKY",
-            "CHANGE_NETWORK_STATE",
-            "CHANGE_WIFI_MULTICAST_STATE",
-            "CHANGE_WIFI_STATE",
-            "DISABLE_KEYGUARD",
-            "EXPAND_STATUS_BAR",
-            "GET_PACKAGE_SIZE",
-            "INSTALL_SHORTCUT",
-            "INTERNET",
-            "KILL_BACKGROUND_PROCESSES",
-            "MODIFY_AUDIO_SETTINGS",
-            "NFC",
-            "READ_SYNC_SETTINGS",
-            "READ_SYNC_STATS",
-            "RECEIVE_BOOT_COMPLETED",
-            "REORDER_TASKS",
-            "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
-            "REQUEST_INSTALL_PACKAGES",
-            "SET_ALARM",
-            "SET_TIME_ZONE",
-            "SET_WALLPAPER",
-            "SET_WALLPAPER_HINTS",
-            "TRANSMIT_IR",
-            "UNINSTALL_SHORTCUT",
-            "USE_FINGERPRINT",
-            "VIBRATE",
-            "WAKE_LOCK",
-            "WRITE_SYNC_SETTINGS"
-        };
-
-        #endregion
-
-        private static List<string> Permissions;
+        private static readonly List<string> Permissions;
 
         static ApkAnalysis()
         {
@@ -61,13 +21,11 @@ namespace StatiskAnalyse
         }
 
         private static readonly string EnjarifyPath = Path.GetFullPath("../../TOOLS/enjarify");
-        private static readonly string JadxPath = Path.GetFullPath("../../TOOLS/jadx/bin/jadx.bat");
-        //private static readonly string ApkToolPath = Path.GetFullPath("../../TOOLS/apktool_2.2.2.jar");
         private static readonly string TempPath = Path.GetFullPath("TEMP");
         private static readonly string ReportPath = Path.GetFullPath("REPORTS");
-
         private static readonly int TempPathLength = TempPath.Length + 1;
 
+        public List<string> PermissionsUsed { get; } = new List<string>();
         public List<SearchResult> Results { get; private set; }
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
@@ -77,14 +35,21 @@ namespace StatiskAnalyse
             var rb = new StringBuilder();
             rb.AppendLine("Analysis of '" + Name + "'\n");
 
+            rb.AppendLine("\tPermissions used:");
+            foreach (var per in PermissionsUsed)
+            {
+                rb.AppendLine("\t\t" + per);
+            }
+            rb.AppendLine();
+
             var founds = Results.Where(r => r.Uses.Count != 0).OrderBy(r => r.Pattern);
-            var notFounds = Results.Where(r => r.Uses.Count == 0).OrderBy(r => r.Pattern); ;
+            var notFounds = Results.Where(r => r.Uses.Count == 0).OrderBy(r => r.Pattern);
 
             foreach (var searchResult in founds)
             {
                 rb.AppendLine($"\t{searchResult.Uses.Count} use(s) of '{searchResult.Pattern}':");
                 foreach (var use in searchResult.Uses)
-                    rb.AppendLine($"\t\t'{MakePathRelative(use.FoundIn.FilePath)}' :: {use.Index}  =>  '{use.Sample}'");
+                    rb.AppendLine($"\t\t'{MakePathRelative(use.FoundIn.FilePath)}' :: {use.Index}");/*  =>  '{use.Sample}'");*/
                 rb.AppendLine();
             }
 
@@ -99,87 +64,50 @@ namespace StatiskAnalyse
             return path.Substring(TempPathLength);
         }
 
-        private static string ApkToolManifest(string path)
+        #region Enjarify toolchain
+
+        public static ApkAnalysis LoadApkEnjarify(string path, params string[] lookFor)
         {
-            var saveDir = Path.Combine(TempPath, Path.GetFileNameWithoutExtension(path), "apktool");
-            if (!Directory.Exists(saveDir))
-                Directory.CreateDirectory(saveDir);
-            var cmd = $"-jar \"{ApkToolPath}\" d \"{path}\" -o \"{saveDir}\"";
-            var pstart = new ProcessStartInfo("java")
-            {
-                Arguments = cmd,
-                //CreateNoWindow = true,
-                //WindowStyle = ProcessWindowStyle.Hidden
-            };
-            var p = Process.Start(pstart);
-            p?.WaitForExit();
-            var daw = File.ReadAllText(Path.Combine(saveDir, "AndroidManifest.xml"));
-            return daw;
+            var aa = InternalEnjarifyToolChain(path);
+            aa.Results = aa.Root.FindUses(lookFor);
+            return aa;
         }
 
-        #region Jadx toolchain
+        public static ApkAnalysis LoadApkEnjarify(string path, params Regex[] lookFor)
+        {
+            var aa = InternalEnjarifyToolChain(path);
+            aa.Results = aa.Root.FindUses(lookFor);
+            return aa;
+        }
 
-        public static ApkAnalysis LoadApkJadx(string apkPath, bool permissions, params string[] lookFor)
+        private static ApkAnalysis InternalEnjarifyToolChain(string path)
         {
             Directory.CreateDirectory(TempPath);
             Directory.CreateDirectory(ReportPath);
-            var sw = new Stopwatch();
-            sw.Start();
             var aa = new ApkAnalysis
             {
-                Name = Path.GetFileNameWithoutExtension(apkPath)
-            };
-            var d = Path.Combine(TempPath, aa.Name);
-            if (!Directory.Exists(d))
-                DecompileJadx(UnzipFile(apkPath, "classes"), d);
-            aa.Root = ClassFileDirectory.LoadFromDirectory(d, "java");
-            aa.Results = aa.Root.FindUses(lookFor);
-            var mani = ApkToolManifest(apkPath);
-            sw.Stop();
-            Console.WriteLine("LoadApkJadx took " + sw.ElapsedMilliseconds + " ms.");
-            return aa;
-        }
-        public static ApkAnalysis LoadApkJadx(string apkPath, params Regex[] lookFor)
-        {
-            var aa = new ApkAnalysis
-            {
-                Name = Path.GetFileNameWithoutExtension(apkPath)
+                Name = Path.GetFileNameWithoutExtension(path)
             };
             var d = Path.Combine(TempPath, aa.Name);
             if (!Directory.Exists(d))
             {
-                var dex = UnzipFile(apkPath, "classes");
-                var dex = UnzipFile(apkPath, "classes");
-                DecompileJadx(dex, d);
+
+                var am = UnzipFile(path, "AndroidManifest.xml");
+                AnalyzeManifest(am, aa);
+                var c = UnzipFile(path, "classes.dex");
+                var jar = Enjarify(c);
+                Unzip(jar);
             }
-            aa.Root = ClassFileDirectory.LoadFromDirectory(d, "java");
-            aa.Results = aa.Root.FindUses(lookFor);
+            aa.Root = ClassFileDirectory.LoadFromDirectory(d, "class");
             return aa;
-        }
-
-
-        private static void DecompileJadx(string classesDex, string outPath)
-        {
-            if (!File.Exists(classesDex))
-                throw new FileNotFoundException("Not found", classesDex);
-            var cmd = $"\"{classesDex}\" -d \"{Path.GetFullPath(outPath)}\"";
-            var pstart = new ProcessStartInfo(JadxPath)
-            {
-                Arguments = cmd,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-            var p = Process.Start(pstart);
-            p?.WaitForExit();
-            File.Delete(classesDex);
         }
 
         private static string UnzipFile(string apkPath, string file)
         {
             if (!File.Exists(apkPath))
                 throw new FileNotFoundException("Not found", apkPath);
-            var dp = Path.GetFileNameWithoutExtension(apkPath);
-            
+            var dp = Path.Combine(TempPath, Path.GetFileNameWithoutExtension(apkPath));
+            Directory.CreateDirectory(dp);
             ZipFile zf = null;
             try
             {
@@ -188,7 +116,7 @@ namespace StatiskAnalyse
                 var zipEntry = zf.GetEntry(file);
                 var buffer = new byte[4096];
                 var zipStream = zf.GetInputStream(zipEntry);
-                dp = Path.Combine(TempPath, dp + "-");
+                dp = Path.Combine(dp, file);
                 using (var streamWriter = File.Create(dp))
                     StreamUtils.Copy(zipStream, streamWriter, buffer);
             }
@@ -196,60 +124,32 @@ namespace StatiskAnalyse
             {
                 if (zf != null)
                 {
-                    zf.IsStreamOwner = true; // Makes close also shut the underlying stream
-                    zf.Close(); // Ensure we release resources
+                    zf.IsStreamOwner = true;
+                    zf.Close();
                 }
             }
             return dp;
         }
 
-        #endregion
-
-        #region Enjarify -> Procyon toolchain
-
-        public static ApkAnalysis LoadApkEnjarify(string path, params string[] lookFor)
+        private static void AnalyzeManifest(string maniPath, ApkAnalysis aa)
         {
-            Directory.CreateDirectory(TempPath);
-            Directory.CreateDirectory(ReportPath);
-            var sw = new Stopwatch();
-            sw.Start();
-            var aa = new ApkAnalysis();
-            aa.Name = Path.GetFileNameWithoutExtension(path);
-            var d = Path.Combine(TempPath, Path.GetFileNameWithoutExtension(path));
-            if (!Directory.Exists(d))
+            var manifest = AndroidDecompress.DecompressXml(File.ReadAllBytes(maniPath));
+            foreach (var permission in Permissions)
             {
-                var jar = Enjarify(path);
-                d = Unzip(jar);
+                if (manifest.Contains(permission))
+                {
+                    aa.PermissionsUsed.Add(permission);
+                }
             }
-            aa.Root = ClassFileDirectory.LoadFromDirectory(d, "class");
-            aa.Results = aa.Root.FindUses(lookFor);
-            sw.Stop();
-            Console.WriteLine("LoadApkEnjarify took " + sw.ElapsedMilliseconds + " ms.");
-            return aa;
         }
 
-        public static ApkAnalysis LoadApkEnjarify(string path, params Regex[] lookFor)
+        private static string Enjarify(string dexPath)
         {
-            var aa = new ApkAnalysis();
-            aa.Name = Path.GetFileNameWithoutExtension(path);
-            var d = Path.Combine(TempPath, Path.GetFileNameWithoutExtension(path));
-            if (!Directory.Exists(d))
-            {
-                var jar = Enjarify(path);
-                d = Unzip(jar);
-            }
-            aa.Root = ClassFileDirectory.LoadFromDirectory(d, "class");
-            aa.Results = aa.Root.FindUses(lookFor);
-            return aa;
-        }
-        
-        private static string Enjarify(string apkPath)
-        {
-            var filename = Path.Combine(Path.GetFullPath(TempPath), Path.GetFileNameWithoutExtension(apkPath)) + ".jar";
-            var cmd = $"-O -m enjarify.main \"{apkPath}\" -o \"{filename}\"";
+            var filename = dexPath.Replace(".dex", ".jar");
+            var cmd = $"-O -m enjarify.main \"{dexPath}\" -o \"{filename}\"";
             var pstart = new ProcessStartInfo("python")
             {
-                WorkingDirectory = Path.GetFullPath(EnjarifyPath),
+                WorkingDirectory = EnjarifyPath,
                 Arguments = cmd,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
@@ -258,14 +158,13 @@ namespace StatiskAnalyse
             p?.WaitForExit();
             return filename;
         }
-        
-        private static string Unzip(string jarPath)
+
+        #endregion
+        private static void Unzip(string jarPath)
         {
             if (!File.Exists(jarPath)) throw new FileNotFoundException("Not found", jarPath);
-            var dp = jarPath.Replace(".jar", "");
+            var dp = Path.Combine(Path.GetDirectoryName(jarPath), "UNPACKED");
             Directory.CreateDirectory(dp);
-
-
             ZipFile zf = null;
             try
             {
@@ -281,16 +180,13 @@ namespace StatiskAnalyse
                     // to remove the folder from the entry:- entryFileName = Path.GetFileName(entryFileName);
                     // Optionally match entrynames against a selection list here to skip as desired.
                     // The unpacked length is available in the zipEntry.Size property.
-
                     var buffer = new byte[4096];     // 4K is optimum
                     var zipStream = zf.GetInputStream(zipEntry);
-
                     // Manipulate the output filename here as desired.
                     var fullZipToPath = Path.Combine(dp, entryFileName);
                     var directoryName = Path.GetDirectoryName(fullZipToPath);
                     if (directoryName.Length > 0)
                         Directory.CreateDirectory(directoryName);
-
                     // Unzip file in buffered chunks. This is just as fast as unpacking to a buffer the full size
                     // of the file, but does not waste memory.
                     // The "using" will close the stream even if an exception occurs.
@@ -307,11 +203,7 @@ namespace StatiskAnalyse
                     zf.IsStreamOwner = true; // Makes close also shut the underlying stream
                     zf.Close(); // Ensure we release resources
                 }
-                File.Delete(jarPath);
             }
-            return dp;
         }
-
-        #endregion
     }
 }
