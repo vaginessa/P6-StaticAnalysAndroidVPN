@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -54,6 +55,11 @@ namespace StatiskAnalyse
             return retVal;
         }
 
+        public List<Tuple<string, bool>> FindPermissions(string apkpath)
+        {
+            return null;
+        }
+
         public List<SearchResult> FindUses(params Regex[] patterns)
         {
             var l = new object();
@@ -87,17 +93,17 @@ namespace StatiskAnalyse
         {
             var i = 0;
             var l = cf.Source.Length;
+            var sl = searchFor.Length;
             while ((i = cf.Source.IndexOf(searchFor, i)) != -1)
             {
-                var x = 80;
-                var z = l - i;
-                if (x > z) x = z;
-                var sam = cf.Source.Substring(i, x);
-                z = sam.IndexOf("\n");
-                if (z != -1)
-                    sam = sam.Substring(0, z-1);
+                var ls = cf.Source.LastIndexOf("\n", i) + 1;
+                var le = cf.Source.IndexOf("\n", ls) - 1;
+                if (le < 0)
+                    le = l;
+
+                var sam = cf.Source.Substring(ls, le - ls).TrimStart();
                 yield return new SearchResult.Use(cf, i, sam);
-                i += searchFor.Length;
+                i += sl;
             }
         }
 
@@ -122,6 +128,11 @@ namespace StatiskAnalyse
         public override string ToString()
         {
             return Name;
+        }
+
+        public object FindUses(string[] androidPermissions, bool pattern)
+        {
+            throw new NotImplementedException();
         }
     }
 }

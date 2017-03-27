@@ -59,21 +59,18 @@ namespace StatiskAnalyse
             var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\VPNAPKSTOTEST");
             foreach (var apk in apks)
             {
-                ApkAnalysis.LoadApkJadx(apk, lookFor).GenerateReport();
+                try
+                {
+                    ApkAnalysis.LoadApkJadx(apk, true, useLibraries).GenerateReport();
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine("ERROR LOADING " + apk); 
+                }
             }
-
-            //var ab =
-            //    ApkAnalysis.LoadApkEnjarify(
-            //        "C:\\Users\\Malte\\Desktop\\ChainTest\\enjarify-master\\TunnelBear VPN_vv137_apkpure.com2.apk",
-            //        lookFor);
-            //var ac =
-            //    ApkAnalysis.LoadApkJadx(
-            //        "C:\\Users\\Malte\\Desktop\\ChainTest\\enjarify-master\\TunnelBear VPN_vv137_apkpure.com3.apk",
-            //        lookFor);
-            //ab.GenerateReport();
-            //ac.GenerateReport();
             Console.WriteLine("\nDone with operations");
             Console.ReadKey();
         }
+
     }
 }
