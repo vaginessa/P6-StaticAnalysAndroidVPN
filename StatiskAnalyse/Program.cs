@@ -12,20 +12,21 @@ namespace StatiskAnalyse
     {
         static void Main(string[] args)
         {
-            var useLibraries = new[] { "java/lang/Thread", "java/lang/reflect/Method", "java/lang/ClassLoader", "java/lang/Runtime;->exec", "https://", "SSLv2", "SSLv3", "Runtime.getRuntime()", ".exec(" };
+            var searchFor = new[] { "java/lang/Thread", "java/lang/reflect/Method", "java/lang/ClassLoader", "java/lang/Runtime", "https://",
+                "SSL_2_0", "SSL_3_0", "TLS_1_0", "TLS_1_1", "TLS_1_2", "getRuntime()", "getRuntime", "exec" + '\u0001' };
            
             var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\VPNAPKSTOTEST");
-            foreach (var apk in apks)
+            Parallel.ForEach(apks, new ParallelOptions {MaxDegreeOfParallelism = 4}, apk =>
             {
                 try
                 {
-                    ApkAnalysis.LoadApkEnjarify(apk, useLibraries).GenerateReport();
+                    ApkAnalysis.LoadApkEnjarify(apk, searchFor).GenerateReport();
                 }
                 catch (Exception exception)
                 {
-                    Console.WriteLine("ERROR LOADING " + apk); 
+                    Console.WriteLine("ERROR LOADING " + apk);
                 }
-            }
+            });
             Console.WriteLine("\nDone with operations");
             Console.ReadKey();
         }
