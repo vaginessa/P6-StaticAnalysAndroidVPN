@@ -26,7 +26,7 @@ namespace StatiskAnalyse
                 {
                     var a = ApkAnalysis.LoadApkEnjarify(apk, searchFor);
                     anas.Add(a);
-                    //a.GenerateReport();
+                    a.GenerateReport();
                 }
                 catch (Exception exception)
                 {

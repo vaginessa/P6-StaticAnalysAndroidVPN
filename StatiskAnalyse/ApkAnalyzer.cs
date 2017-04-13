@@ -142,7 +142,6 @@ namespace StatiskAnalyse
                 Unzip(jaf);
 
             AnalyzeManifest(am, aa);
-            return aa;
             aa.Root = ClassFileDirectory.LoadFromDirectory(dd, "class");
             AnalyzeTrackerUse(aa);
             AnalyzeCryptoLibUse(aa);
