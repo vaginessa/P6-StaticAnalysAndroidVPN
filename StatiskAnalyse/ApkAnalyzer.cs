@@ -13,8 +13,8 @@ namespace StatiskAnalyse
 {
     class ApkAnalysis
     {
-        private static readonly string[] Permissions;
-        private static readonly string[] Trackers;
+        internal static readonly string[] Permissions;
+        internal static readonly string[] Trackers;
 
         static ApkAnalysis()
         {
