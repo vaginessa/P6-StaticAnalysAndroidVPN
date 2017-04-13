@@ -106,14 +106,14 @@ namespace StatiskAnalyse
         public static ApkAnalysis LoadApkEnjarify(string path, params string[] lookFor)
         {
             var aa = InternalEnjarifyToolChain(path);
-            aa.Results = aa.Root.FindUses(lookFor);
+            //aa.Results = aa.Root.FindUses(lookFor);
             return aa;
         }
 
         public static ApkAnalysis LoadApkEnjarify(string path, params Regex[] lookFor)
         {
             var aa = InternalEnjarifyToolChain(path);
-            aa.Results = aa.Root.FindUses(lookFor);
+            //aa.Results = aa.Root.FindUses(lookFor);
             return aa;
         }
 
@@ -129,7 +129,11 @@ namespace StatiskAnalyse
             var dd = Path.Combine(d, "UNPACKED");
 
             if (!File.Exists(am))
+            {
                 UnzipFile(path, "AndroidManifest.xml");
+                var manifest = AndroidDecompress.DecompressXml(File.ReadAllBytes(am));
+                File.WriteAllText(am, manifest);
+            }
             if (!File.Exists(c))
                 UnzipFile(path, "classes.dex");
             if (!File.Exists(jaf))
@@ -138,6 +142,7 @@ namespace StatiskAnalyse
                 Unzip(jaf);
 
             AnalyzeManifest(am, aa);
+            return aa;
             aa.Root = ClassFileDirectory.LoadFromDirectory(dd, "class");
             AnalyzeTrackerUse(aa);
             AnalyzeCryptoLibUse(aa);
@@ -249,7 +254,9 @@ namespace StatiskAnalyse
 
         private static void AnalyzeManifest(string maniPath, ApkAnalysis aa)
         {
-            var manifest = AndroidDecompress.DecompressXml(File.ReadAllBytes(maniPath));
+            var manifest = File.ReadAllText(maniPath);
+            //var manifest = AndroidDecompress.DecompressXml(File.ReadAllBytes(maniPath));
+            //File.WriteAllText(maniPath, manifest);
             foreach (var permission in Permissions)
             {
                 if (manifest.Contains(permission))
