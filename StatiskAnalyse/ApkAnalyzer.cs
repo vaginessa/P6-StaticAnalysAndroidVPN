@@ -8,34 +8,30 @@ using System.Text;
 using System.Text.RegularExpressions;
 using ICSharpCode.SharpZipLib.Core;
 using ICSharpCode.SharpZipLib.Zip;
+using Newtonsoft.Json;
 
 namespace StatiskAnalyse
 {
     class ApkAnalysis
     {
-        internal static readonly string[] Permissions;
         internal static readonly string[] Trackers;
 
         static ApkAnalysis()
         {
-            Permissions = File.ReadLines("../../perms.txt").Select(l => l.Substring(31, l.Length - 34)).ToArray();
             Trackers = File.ReadLines("../../trackers.txt").ToArray();
-            CriticalLibs = new[]
-            {
-                "org/spongycastle",
-                "de/blinkt/openvpn",
-                "okhttp3",
-                "okhttp"
-            };
         }
+        
+        public static string[] CriticalLibs { get; } = {
+            "org/spongycastle",
+            "org/bouncycastle",
+            "de/blinkt/openvpn",
+            "okhttp3",
+            "okhttp",
+            "javax"
+        };
 
-        public static string[] CriticalLibs { get; set; }
-
-
-        private static readonly string EnjarifyPath = Path.GetFullPath("../../TOOLS/enjarify");
+        private static readonly string BakSmaliPath = Path.GetFullPath("../../TOOLS/baksmali-2.2.0.jar");
         private static readonly string SavePath = Path.GetFullPath("/STAN");
-        //private static readonly string ReportPath = Path.GetFullPath("/REPORTS");
-        private static readonly int TempPathLength = SavePath.Length + 1;
         
         public List<string> CriticalLibsUsed { get; } = new List<string>();
         public List<string> TrackersUsed { get; } = new List<string>();
@@ -43,81 +39,43 @@ namespace StatiskAnalyse
         public List<SearchResult> Results { get; private set; }
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
-
-        public void GenerateReport()
+        
+        public void GenerateJson()
         {
-            var rb = new StringBuilder();
-            rb.AppendLine("Analysis of '" + Name + "'\n");
+            File.WriteAllText(Path.Combine(SavePath, Name, "permissions.json"), JsonConvert.SerializeObject(PermissionsUsed, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "libraries.json"), JsonConvert.SerializeObject(CriticalLibsUsed, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "trackers.json"), JsonConvert.SerializeObject(TrackersUsed, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "search.json"), JsonConvert.SerializeObject(Results.Where(r => r.Uses.Count != 0).OrderBy(r => r.Pattern), Formatting.Indented));
+            Clear();
+        }
 
-            rb.AppendLine("\tPermissions used:");
-            foreach (var per in PermissionsUsed)
-            {
-                rb.AppendLine("\t\t" + per);
-            }
-            rb.AppendLine();
-            
-            rb.AppendLine("\tCritical libraries:");
-            foreach (var clib in CriticalLibsUsed)
-            {
-                rb.AppendLine("\t\t" + clib);
-            }
-            rb.AppendLine();
-
-            rb.AppendLine("\tTrackers found:");
-            foreach (var track in TrackersUsed)
-            {
-                rb.AppendLine("\t\t" + track);
-            }
-            rb.AppendLine();
-
-            var founds = Results.Where(r => r.Uses.Count != 0).OrderBy(r => r.Pattern);
-            var notFounds = Results.Where(r => r.Uses.Count == 0).OrderBy(r => r.Pattern);
-
-            rb.AppendLine("\tSearch patterns found:");
-            foreach (var searchResult in founds)
-            {
-                rb.AppendLine($"\t\t{searchResult.Uses.Count} use(s) of '{searchResult.Pattern}'");
-            }
-            rb.AppendLine();
-
-            if (notFounds.Any()) rb.AppendLine("\n\tSearch patterns not found:");
-            foreach (var searchResult in notFounds)
-                rb.AppendLine("\t\t" + searchResult.Pattern);
-
-            rb.AppendLine();
-            foreach (var searchResult in founds)
-            {
-                rb.AppendLine($"\tUses of '{searchResult.Pattern}'");
-                foreach (var use in searchResult.Uses)
-                    rb.AppendLine($"\t\t'{MakePathRelative(use.FoundIn.FilePath)}' :: {use.Index}");/*  =>  '{use.Sample}'");*/
-                rb.AppendLine();
-            }
-
-            File.WriteAllText(Path.Combine(SavePath, Name, "Report.txt"), rb.ToString());
+        private void Clear()
+        {
+            Root.Directories.Clear();
+            Root.Files.Clear();
+            CriticalLibsUsed.Clear();
+            TrackersUsed.Clear();
+            PermissionsUsed.Clear();
+            Results.Clear();
         }
         
-        private static string MakePathRelative(string path)
-        {
-            return path.Substring(TempPathLength);
-        }
-
         #region Enjarify toolchain
 
-        public static ApkAnalysis LoadApkEnjarify(string path, params string[] lookFor)
+        public static ApkAnalysis LoadApkBakSmali(string path, params string[] lookFor)
         {
-            var aa = InternalEnjarifyToolChain(path);
-            //aa.Results = aa.Root.FindUses(lookFor);
+            var aa = InternalSmaliToolChain(path);
+            aa.Results = aa.Root.FindUses(lookFor);
             return aa;
         }
 
-        public static ApkAnalysis LoadApkEnjarify(string path, params Regex[] lookFor)
+        public static ApkAnalysis LoadApkBakSmali(string path, params Regex[] lookFor)
         {
-            var aa = InternalEnjarifyToolChain(path);
-            //aa.Results = aa.Root.FindUses(lookFor);
+            var aa = InternalSmaliToolChain(path);
+            aa.Results = aa.Root.FindUses(lookFor);
             return aa;
         }
 
-        private static ApkAnalysis InternalEnjarifyToolChain(string path)
+        private static ApkAnalysis InternalSmaliToolChain(string path)
         {
             Directory.CreateDirectory(SavePath);
             //Directory.CreateDirectory(ReportPath);
@@ -125,8 +83,7 @@ namespace StatiskAnalyse
             var d = Path.Combine(SavePath, aa.Name);
             var am = Path.Combine(d, "AndroidManifest.xml");
             var c = Path.Combine(d, "classes.dex");
-            var jaf = Path.Combine(d, "classes.jar");
-            var dd = Path.Combine(d, "UNPACKED");
+            var o = Path.Combine(d, "out");
 
             if (!File.Exists(am))
             {
@@ -136,16 +93,28 @@ namespace StatiskAnalyse
             }
             if (!File.Exists(c))
                 UnzipFile(path, "classes.dex");
-            if (!File.Exists(jaf))
-                Enjarify(c);
-            if (!Directory.Exists(dd))
-                Unzip(jaf);
+            if (!Directory.Exists(o))
+                BakSmali(c);
 
             AnalyzeManifest(am, aa);
-            aa.Root = ClassFileDirectory.LoadFromDirectory(dd, "class");
+            aa.Root = ClassFileDirectory.LoadFromDirectory(o, "smali");
             AnalyzeTrackerUse(aa);
             AnalyzeCryptoLibUse(aa);
             return aa;
+        }
+
+        private static void BakSmali(string inputDex)
+        {
+            var cmd = $"-jar \"{BakSmaliPath}\" disassemble \"{inputDex}\"";
+            var pstart = new ProcessStartInfo("java")
+            { 
+                WorkingDirectory = Path.GetDirectoryName(inputDex),
+                Arguments = cmd,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            var p = Process.Start(pstart);
+            p?.WaitForExit();
         }
 
         private static void AnalyzeTrackerUse(ApkAnalysis aa)
@@ -209,7 +178,7 @@ namespace StatiskAnalyse
                                 f => f.Name == "Version");
                         if (dd != null)
                         {
-                            var m = _okHttpVersionRegex.Match(dd.Source);
+                            var m = OkHttpVersionRegex.Match(dd.Source);
                             if (m.Success)
                             {
                                 saveCLib += m.Value.Replace("okhttp/", " ");
@@ -221,7 +190,9 @@ namespace StatiskAnalyse
             }
         }
 
-        private static Regex _okHttpVersionRegex = new Regex("okhttp/[0-9]+.[0-9]+.[0-9]+", RegexOptions.Compiled);
+        private static readonly Regex OkHttpVersionRegex = new Regex("okhttp/[0-9]+.[0-9]+.[0-9]+", RegexOptions.Compiled);
+        private static readonly Regex Permissions = new Regex("<uses-permission name=\"([a-zA-Z0-9.,_]+)\">", RegexOptions.Compiled);
+        private static readonly Regex IntentPermission = new Regex("permission=\"([a-zA-Z0-9.,_]+)\"", RegexOptions.Compiled);
         
         private static void UnzipFile(string apkPath, string file)
         {
@@ -254,75 +225,15 @@ namespace StatiskAnalyse
         private static void AnalyzeManifest(string maniPath, ApkAnalysis aa)
         {
             var manifest = File.ReadAllText(maniPath);
-            //var manifest = AndroidDecompress.DecompressXml(File.ReadAllBytes(maniPath));
-            //File.WriteAllText(maniPath, manifest);
-            foreach (var permission in Permissions)
+            var results = Permissions.Matches(manifest);
+            var iResults = IntentPermission.Matches(manifest);
+            foreach (Match res in results)
             {
-                if (manifest.Contains(permission))
-                {
-                    aa.PermissionsUsed.Add(permission);
-                }
+                aa.PermissionsUsed.Add(res.Groups[1].Value);
             }
-        }
-
-        private static void Enjarify(string dexPath)
-        {
-            var filename = dexPath.Replace(".dex", ".jar");
-            var cmd = $"-O -m enjarify.main \"{dexPath}\" -o \"{filename}\"";
-            var pstart = new ProcessStartInfo("python")
+            foreach (Match res in iResults)
             {
-                WorkingDirectory = EnjarifyPath,
-                Arguments = cmd,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-            var p = Process.Start(pstart);
-            p?.WaitForExit();
-        }
-
-        private static void Unzip(string jarPath)
-        {
-            if (!File.Exists(jarPath)) throw new FileNotFoundException("Not found", jarPath);
-            var dp = Path.Combine(Path.GetDirectoryName(jarPath), "UNPACKED");
-            Directory.CreateDirectory(dp);
-            ZipFile zf = null;
-            try
-            {
-                var fs = File.OpenRead(jarPath);
-                zf = new ZipFile(fs) {UseZip64 = UseZip64.Dynamic};
-                foreach (ZipEntry zipEntry in zf)
-                {
-                    if (!zipEntry.IsFile)
-                    {
-                        continue;           // Ignore directories
-                    }
-                    var entryFileName = zipEntry.Name;
-                    // to remove the folder from the entry:- entryFileName = Path.GetFileName(entryFileName);
-                    // Optionally match entrynames against a selection list here to skip as desired.
-                    // The unpacked length is available in the zipEntry.Size property.
-                    var buffer = new byte[4096];     // 4K is optimum
-                    var zipStream = zf.GetInputStream(zipEntry);
-                    // Manipulate the output filename here as desired.
-                    var fullZipToPath = Path.Combine(dp, entryFileName);
-                    var directoryName = Path.GetDirectoryName(fullZipToPath);
-                    if (directoryName.Length > 0)
-                        Directory.CreateDirectory(directoryName);
-                    // Unzip file in buffered chunks. This is just as fast as unpacking to a buffer the full size
-                    // of the file, but does not waste memory.
-                    // The "using" will close the stream even if an exception occurs.
-                    using (var streamWriter = File.Create(fullZipToPath))
-                    {
-                        StreamUtils.Copy(zipStream, streamWriter, buffer);
-                    }
-                }
-            }
-            finally
-            {
-                if (zf != null)
-                {
-                    zf.IsStreamOwner = true; // Makes close also shut the underlying stream
-                    zf.Close(); // Ensure we release resources
-                }
+                aa.PermissionsUsed.Add(res.Groups[1].Value);
             }
         }
 
