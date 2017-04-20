@@ -13,9 +13,11 @@ namespace StatiskAnalyse
     {
         static void Main(string[] args)
         {
-            var searchFor = new[] { "java/lang/Thread", "java/lang/reflect/Method", "java/lang/ClassLoader", "java/lang/Runtime", "https://",
-                "SSL_2_0", "SSL_3_0", "TLS_1_0", "TLS_1_1", "TLS_1_2", "exec"};
+            var searchFor = new[] { "https://", "SSL_2_0", "SSL_3_0", "TLS_1_0", "TLS_1_1", "TLS_1_2", "exec"};
 
+            var potDangJavaClasses = new[] { "java/lang/Thread", "java/lang/reflect/Method", "java/lang/ClassLoader", "java/lang/Runtime" };
+
+            searchFor = searchFor.Concat(potDangJavaClasses).ToArray();
 
             var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\flervpnapps", "*.apk");
             int done = 0, total = apks.Count();
@@ -26,7 +28,7 @@ namespace StatiskAnalyse
             {
                 try
                 {
-                    ApkAnalysis.LoadApkBakSmali(apk, searchFor).GenerateJson();
+                    ApkAnalysis.LoadApkBakSmali(apk, searchFor).GenerateJson(potDangJavaClasses);
                 }
                 catch (Exception ex)
                 {

@@ -40,11 +40,12 @@ namespace StatiskAnalyse
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
         
-        public void GenerateJson()
+        public void GenerateJson(params string[] dangClass)
         {
             File.WriteAllText(Path.Combine(SavePath, Name, "permissions.json"), JsonConvert.SerializeObject(PermissionsUsed, Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "libraries.json"), JsonConvert.SerializeObject(CriticalLibsUsed, Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "trackers.json"), JsonConvert.SerializeObject(TrackersUsed, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "javaClasses.json"), JsonConvert.SerializeObject(dangClass.Where(x => Results.Any(y => y.Pattern == x)), Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "search.json"), JsonConvert.SerializeObject(Results.Where(r => r.Uses.Count != 0).OrderBy(r => r.Pattern), Formatting.Indented));
             Clear();
         }
