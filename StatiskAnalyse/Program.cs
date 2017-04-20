@@ -20,6 +20,7 @@ namespace StatiskAnalyse
             var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\flervpnapps", "*.apk");
             int done = 0, total = apks.Count();
             var tot = 100.0 / total;
+            var starttime = DateTime.UtcNow;
 
             foreach (var apk in apks)
             {
@@ -34,8 +35,12 @@ namespace StatiskAnalyse
                 finally
                 {
                     done++;
+                    var timeUsed = DateTime.UtcNow.Subtract(starttime).TotalMinutes;
+                    var tpa = timeUsed / done;
+                    var tl = (total - done) * tpa;
                     Console.Clear();
                     Console.WriteLine($"{done}/{total} - {Math.Round(tot * done),1}%");
+                    Console.WriteLine("Estimated time left " + Math.Round(tl) + " minutes");
                 }
             }
             
