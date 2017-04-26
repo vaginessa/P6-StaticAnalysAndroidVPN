@@ -54,12 +54,7 @@ namespace StatiskAnalyse
             });
             return retVal;
         }
-
-        public List<Tuple<string, bool>> FindPermissions(string apkpath)
-        {
-            return null;
-        }
-
+        
         public List<SearchResult> FindUses(params Regex[] patterns)
         {
             var l = new object();
@@ -95,9 +90,10 @@ namespace StatiskAnalyse
             {
                 var l = cf.Source[li];
                 var i = l.IndexOf(searchFor);
-                if (i != -1)
+                while (i != -1)
                 {
                     yield return new SearchResult.Use(cf, li + 1, i + 1, l);
+                    i = l.IndexOf(searchFor, i);
                 }
             }
         }
@@ -118,9 +114,10 @@ namespace StatiskAnalyse
             for (var i = 0; i < cf.Source.Length; i++)
             {
                 var l = cf.Source[i];
-                var m = searchFor.Match(l);
-                if (m.Success)
-                    yield return new SearchResult.Use(cf, i+1, m.Index +1, l);
+                var m = searchFor.Matches(l);
+                if (m.Count == 0) continue;
+                foreach (Match match in m)
+                    yield return new SearchResult.Use(cf, i + 1, match.Index + 1, match.Value);
             }
         }
 
@@ -128,11 +125,6 @@ namespace StatiskAnalyse
         public override string ToString()
         {
             return Name;
-        }
-
-        public object FindUses(string[] androidPermissions, bool pattern)
-        {
-            throw new NotImplementedException();
         }
     }
 }

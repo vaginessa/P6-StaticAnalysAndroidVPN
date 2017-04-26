@@ -19,7 +19,7 @@ namespace StatiskAnalyse
 
             searchFor = searchFor.Concat(potDangJavaClasses.Select(t => new Regex(t, RegexOptions.Compiled))).ToArray();
 
-            var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\flervpnapps", "*.apk").Where(x => x.Contains("Avast"));
+            var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\flervpnapps", "*.apk")/*.Where(x => x.Contains("Avast"))*/;
             int done = 0, total = apks.Count();
             var tot = 100.0 / total;
             var starttime = DateTime.UtcNow;

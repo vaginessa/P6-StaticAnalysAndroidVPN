@@ -20,7 +20,6 @@ namespace StatiskAnalyse
             public ClassFile FoundIn { get; }
 
             public string File => FoundIn.FilePath;
-
             public int Index { get; }
             public int Line { get; set; }
             

@@ -41,7 +41,7 @@ namespace StatiskAnalyse
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
         
-        public void GenerateJson(params string[] dangClass)
+        public void  GenerateJson(params string[] dangClass)
         {
             File.WriteAllText(Path.Combine(SavePath, Name, "permissions.json"), JsonConvert.SerializeObject(PermissionsUsed, Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "libraries.json"), JsonConvert.SerializeObject(CriticalLibsUsed, Formatting.Indented));
