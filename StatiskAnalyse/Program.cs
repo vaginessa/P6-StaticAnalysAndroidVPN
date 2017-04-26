@@ -13,13 +13,13 @@ namespace StatiskAnalyse
     {
         static void Main(string[] args)
         {
-            var searchFor = new[] { "https://", "SSL_2_0", "SSL_3_0", "TLS_1_0", "TLS_1_1", "TLS_1_2", "exec"};
+            var searchFor = new[] { new Regex("\".*\"", RegexOptions.Compiled)  };
 
-            var potDangJavaClasses = new[] { "java/lang/Thread", "java/lang/reflect/Method", "java/lang/ClassLoader", "java/lang/Runtime" };
+            var potDangJavaClasses = new[] { "Ljava/security/SecureClassLoader", "Ljava/net/URLClassLoader", "Ljava/lang/Runtime;->exec" };
 
-            searchFor = searchFor.Concat(potDangJavaClasses).ToArray();
+            searchFor = searchFor.Concat(potDangJavaClasses.Select(t => new Regex(t, RegexOptions.Compiled))).ToArray();
 
-            var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\flervpnapps", "*.apk");
+            var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\flervpnapps", "*.apk").Where(x => x.Contains("Avast"));
             int done = 0, total = apks.Count();
             var tot = 100.0 / total;
             var starttime = DateTime.UtcNow;

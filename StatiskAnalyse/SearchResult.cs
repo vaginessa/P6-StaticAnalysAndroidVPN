@@ -22,15 +22,17 @@ namespace StatiskAnalyse
             public string File => FoundIn.FilePath;
 
             public int Index { get; }
-
-            public string Sample { get; }
-
-            public Use(ClassFile cf, int index, string sample)
+            public int Line { get; set; }
+            
+            public Use(ClassFile cf, int line, int col, string ll)
             {
                 FoundIn = cf;
-                Index = index;
-                Sample = sample;
+                Line = line;
+                Index = col;
+                SampleLine = ll;
             }
+
+            public string SampleLine { get; set; }
         }
     }
 

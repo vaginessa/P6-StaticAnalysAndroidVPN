@@ -30,12 +30,13 @@ namespace StatiskAnalyse
             "javax"
         };
 
-        private static readonly string BakSmaliPath = Path.GetFullPath("../../TOOLS/baksmali-2.2.0.jar");
-        private static readonly string SavePath = Path.GetFullPath("/STAN");
+        public static readonly string BakSmaliPath = Path.GetFullPath("../../TOOLS/baksmali-2.2.0.jar");
+        public static readonly string AaptPah = Path.GetFullPath("C:\\Users\\Malte\\AppData\\Local\\Android\\sdk\\build-tools\\25.0.2\\aapt.exe");
+        public static readonly string SavePath = Path.GetFullPath("/STAN");
         
         public List<string> CriticalLibsUsed { get; } = new List<string>();
         public List<string> TrackersUsed { get; } = new List<string>();
-        public List<string> PermissionsUsed { get; } = new List<string>();
+        public List<string> PermissionsUsed { get; set; } = new List<string>();
         public List<SearchResult> Results { get; private set; }
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
@@ -79,25 +80,18 @@ namespace StatiskAnalyse
         private static ApkAnalysis InternalSmaliToolChain(string path)
         {
             Directory.CreateDirectory(SavePath);
-            //Directory.CreateDirectory(ReportPath);
             var aa = new ApkAnalysis { Name = Path.GetFileNameWithoutExtension(path) };
             var d = Path.Combine(SavePath, aa.Name);
-            var am = Path.Combine(d, "AndroidManifest.xml");
             var c = Path.Combine(d, "classes.dex");
             var o = Path.Combine(d, "out");
 
-            if (!File.Exists(am))
-            {
-                UnzipFile(path, "AndroidManifest.xml");
-                var manifest = AndroidDecompress.DecompressXml(File.ReadAllBytes(am));
-                File.WriteAllText(am, manifest);
-            }
+
+            aa.PermissionsUsed = AndroidXmlDecompress.ExtractPermissions(path);
             if (!File.Exists(c))
                 UnzipFile(path, "classes.dex");
             if (!Directory.Exists(o))
                 BakSmali(c);
-
-            AnalyzeManifest(am, aa);
+            
             aa.Root = ClassFileDirectory.LoadFromDirectory(o, "smali");
             AnalyzeTrackerUse(aa);
             AnalyzeCryptoLibUse(aa);
@@ -169,31 +163,11 @@ namespace StatiskAnalyse
                         root = ro;
                     }
                 }
-                if (found)
-                {
-                    var saveCLib = cLib;
-                    if (cLib == "okhttp3")
-                    {
-                        var dd =
-                            root.Directories.FirstOrDefault(r => r.Name == cLib)?.Directories[0].Files.FirstOrDefault(
-                                f => f.Name == "Version");
-                        if (dd != null)
-                        {
-                            var m = OkHttpVersionRegex.Match(dd.Source);
-                            if (m.Success)
-                            {
-                                saveCLib += m.Value.Replace("okhttp/", " ");
-                            }
-                        }
-                    }
-                    aa.CriticalLibsUsed.Add(saveCLib);
-                }
+                if (!found) continue;
+                var saveCLib = cLib;
+                aa.CriticalLibsUsed.Add(saveCLib);
             }
         }
-
-        private static readonly Regex OkHttpVersionRegex = new Regex("okhttp/[0-9]+.[0-9]+.[0-9]+", RegexOptions.Compiled);
-        private static readonly Regex Permissions = new Regex("<uses-permission name=\"([a-zA-Z0-9.,_]+)\">", RegexOptions.Compiled);
-        private static readonly Regex IntentPermission = new Regex("permission=\"([a-zA-Z0-9.,_]+)\"", RegexOptions.Compiled);
         
         private static void UnzipFile(string apkPath, string file)
         {
@@ -222,22 +196,7 @@ namespace StatiskAnalyse
                 }
             }
         }
-
-        private static void AnalyzeManifest(string maniPath, ApkAnalysis aa)
-        {
-            var manifest = File.ReadAllText(maniPath);
-            var results = Permissions.Matches(manifest);
-            var iResults = IntentPermission.Matches(manifest);
-            foreach (Match res in results)
-            {
-                aa.PermissionsUsed.Add(res.Groups[1].Value);
-            }
-            foreach (Match res in iResults)
-            {
-                aa.PermissionsUsed.Add(res.Groups[1].Value);
-            }
-        }
-
+        
         #endregion
     }
 }

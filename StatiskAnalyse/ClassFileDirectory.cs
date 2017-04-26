@@ -91,19 +91,14 @@ namespace StatiskAnalyse
     
         private static IEnumerable<SearchResult.Use> FindOccurencesInString(ClassFile cf, string searchFor)
         {
-            var i = 0;
-            var l = cf.Source.Length;
-            var sl = searchFor.Length;
-            while ((i = cf.Source.IndexOf(searchFor, i)) != -1)
+            for (var li = 0; li < cf.Source.Length; li++)
             {
-                var ls = cf.Source.LastIndexOf("\n", i) + 1;
-                var le = cf.Source.IndexOf("\n", ls) - 1;
-                if (le < 0)
-                    le = l;
-
-                var sam = cf.Source.Substring(ls, le - ls).TrimStart();
-                yield return new SearchResult.Use(cf, i, sam);
-                i += sl;
+                var l = cf.Source[li];
+                var i = l.IndexOf(searchFor);
+                if (i != -1)
+                {
+                    yield return new SearchResult.Use(cf, li + 1, i + 1, l);
+                }
             }
         }
 
@@ -120,8 +115,13 @@ namespace StatiskAnalyse
 
         private static IEnumerable<SearchResult.Use> FindOccurencesInString(ClassFile cf, Regex searchFor)
         {
-            var matches = searchFor.Matches(cf.Source);
-            return (from Match match in matches select new SearchResult.Use(cf, match.Index, match.Value)).ToList();
+            for (var i = 0; i < cf.Source.Length; i++)
+            {
+                var l = cf.Source[i];
+                var m = searchFor.Match(l);
+                if (m.Success)
+                    yield return new SearchResult.Use(cf, i+1, m.Index +1, l);
+            }
         }
 
 
