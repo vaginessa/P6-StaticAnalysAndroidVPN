@@ -32,6 +32,11 @@ namespace StatiskAnalyse
             }
 
             public string SampleLine { get; set; }
+
+            public override string ToString()
+            {
+                return SampleLine;
+            }
         }
     }
 

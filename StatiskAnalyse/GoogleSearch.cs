@@ -9,7 +9,7 @@ namespace StatiskAnalyse
 
         public GoogleSearch(string word)
         {
-            Query = "http://www.google.dk/search?q=" + word + "&hl=en";
+            Query = "http://www.google.dk/search?q=" + WebUtility.UrlEncode(word) + "&hl=en";
             using (var wc = new WebClient())
             {
                 var html = wc.DownloadString(Query);

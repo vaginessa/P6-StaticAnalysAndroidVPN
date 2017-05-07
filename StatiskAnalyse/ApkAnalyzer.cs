@@ -61,7 +61,7 @@ namespace StatiskAnalyse
             Results.Clear();
         }
         
-        #region Enjarify toolchain
+        #region BakSmali toolchain
 
         public static ApkAnalysis LoadApkBakSmali(string path, params string[] lookFor)
         {
@@ -74,7 +74,49 @@ namespace StatiskAnalyse
         {
             var aa = InternalSmaliToolChain(path);
             aa.Results = aa.Root.FindUses(lookFor);
+            var sea = aa.Results.First(r => r.Pattern == "\".*\"")
+                .Uses.Where(u => u.SampleLine.Length > 16 && (u.SampleLine.IndexOf(" ") == -1 ||
+                                 u.SampleLine.IndexOf(" ") > 15) && !u.SampleLine.Contains("java") && !u.SampleLine.Contains("system") && !u.SampleLine.Contains("cordova") && !u.SampleLine.Contains("Lorg") && !u.SampleLine.Contains("android"))
+                .Distinct(new UseComparer());
+            var ent = sea.Select(x => new Tuple<string, double>(x.SampleLine, GetEntropy(x.SampleLine))).Where(x => x.Item2 > 3).OrderByDescending(x => x.Item2);
+            var adwad = ent.Take(3).Select(s => new GoogleSearch(s.Item1)).Where(gs => gs.Results < 1000).ToList();
             return aa;
+        }
+
+        // Shannon entropy
+        private static double GetEntropy(string s)
+        {
+            var map = new Dictionary<char, int>();
+            foreach (var c in s)
+            {
+                if (!map.ContainsKey(c))
+                    map.Add(c, 1);
+                else
+                    map[c] += 1;
+            }
+
+            double result = 0.0;
+            int len = s.Length;
+            foreach (var item in map)
+            {
+                var frequency = (double)item.Value / len;
+                result -= frequency * (Math.Log(frequency) / Math.Log(2));
+            }
+
+            return result;
+        }
+
+        class UseComparer : IEqualityComparer<SearchResult.Use>
+        {
+            public bool Equals(SearchResult.Use x, SearchResult.Use y)
+            {
+                return x.SampleLine.ToLower() == y.SampleLine.ToLower();
+            }
+
+            public int GetHashCode(SearchResult.Use obj)
+            {
+                return obj.SampleLine.ToLower().GetHashCode();
+            }
         }
 
         private static ApkAnalysis InternalSmaliToolChain(string path)
@@ -82,15 +124,12 @@ namespace StatiskAnalyse
             Directory.CreateDirectory(SavePath);
             var aa = new ApkAnalysis { Name = Path.GetFileNameWithoutExtension(path) };
             var d = Path.Combine(SavePath, aa.Name);
-            var c = Path.Combine(d, "classes.dex");
             var o = Path.Combine(d, "out");
 
 
             aa.PermissionsUsed = AndroidXmlDecompress.ExtractPermissions(path);
-            if (!File.Exists(c))
-                UnzipFile(path, "classes.dex");
             if (!Directory.Exists(o))
-                BakSmali(c);
+                BakSmali(path);
             
             aa.Root = ClassFileDirectory.LoadFromDirectory(o, "smali");
             AnalyzeTrackerUse(aa);
