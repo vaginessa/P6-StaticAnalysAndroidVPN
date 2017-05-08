@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace StatiskAnalyse
 {
@@ -13,27 +9,29 @@ namespace StatiskAnalyse
     {
         static void Main(string[] args)
         {
+            GoogleSearch.ApiKey = "AIzaSyDrqFQq2jnMtCtiNPiI5D6KDCWJT_Fyrt4";
+            string ApkFolder = "/folder/with/apk/files";
+
+
+            if (args.Length > 0 && Directory.Exists(args[0]))
+                ApkFolder = args[0];
+
             var searchFor = new[] 
             {
-                new Tuple<Regex, Action<IEnumerable<SearchResult>>>(new Regex("\".*\"", RegexOptions.Compiled), null),
-                new Tuple<Regex, Action<IEnumerable<SearchResult>>>(new Regex("[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}", RegexOptions.Compiled),
-                    results =>
-                    {
-                        
-                    }),
-                new Tuple<Regex, Action<IEnumerable<SearchResult>>>(new Regex("Ljava/security/SecureClassLoader", RegexOptions.Compiled), null), 
-                new Tuple<Regex, Action<IEnumerable<SearchResult>>>(new Regex("Ljava/net/URLClassLoader", RegexOptions.Compiled), null), 
-                new Tuple<Regex, Action<IEnumerable<SearchResult>>>(new Regex("Ljava/lang/Runtime;->exec", RegexOptions.Compiled), null), 
-
+                new Regex("\".*\"", RegexOptions.Compiled),
+                new Regex("[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}", RegexOptions.Compiled),
+                new Regex("Ljava/security/SecureClassLoader", RegexOptions.Compiled),
+                new Regex("Ljava/net/URLClassLoader", RegexOptions.Compiled),
+                new Regex("Ljava/lang/Runtime;->exec", RegexOptions.Compiled)
             };
 
+            PerformAnalysis(ApkFolder, searchFor);
+            Console.ReadKey();
+        }
 
-
-            var potDangJavaClasses = new[] { "Ljava/security/SecureClassLoader", "Ljava/net/URLClassLoader", "Ljava/lang/Runtime;->exec" };
-
-            searchFor = searchFor.Concat(potDangJavaClasses.Select(t => new Regex(t, RegexOptions.Compiled))).ToArray();
-
-            var apks = Directory.EnumerateFiles("C:\\Users\\Malte\\Desktop\\flervpnapps", "*.apk")/*.Where(x => x.Contains("Avast"))*/;
+        private static void PerformAnalysis(string apkFolder, Regex[] regexes)
+        {
+            var apks = Directory.EnumerateFiles(apkFolder, "*.apk");
             int done = 0, total = apks.Count();
             var tot = 100.0 / total;
             var starttime = DateTime.UtcNow;
@@ -42,11 +40,11 @@ namespace StatiskAnalyse
             {
                 try
                 {
-                    ApkAnalysis.LoadApkBakSmali(apk, searchFor).GenerateJson(potDangJavaClasses);
+                    ApkAnalysis.LoadApkBakSmali(apk, regexes).GenerateJson();
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Console.WriteLine("ERROR LOADING " + apk);
+                    Console.WriteLine("Error loading APK: " + apk);
                 }
                 finally
                 {
@@ -59,9 +57,7 @@ namespace StatiskAnalyse
                     Console.WriteLine("Estimated time left " + Math.Round(tl) + " minutes");
                 }
             }
-            
             Console.WriteLine("\nDone with operations");
-            Console.ReadKey();
         }
 
     }

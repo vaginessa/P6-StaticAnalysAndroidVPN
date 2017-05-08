@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace StatiskAnalyse
 {
-    class AndroidXmlDecompress
+    class AndroidPermissionExtracter
     {
         public static List<string> ExtractPermissions(string manifestPath)
         {
@@ -24,7 +21,6 @@ namespace StatiskAnalyse
             bool titleGotten = false;
             while (!p.StandardOutput.EndOfStream)
             {
-                //var s = p.StandardOutput.ReadLine();
                 var s = p.StandardOutput.ReadLine().Replace("uses-permission: name=", "").Replace("permission: ", "").Trim('\'');
                 if (titleGotten)
                     list.Add(s);

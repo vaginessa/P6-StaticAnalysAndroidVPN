@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
@@ -38,6 +39,20 @@ namespace StatiskAnalyse
                 return SampleLine;
             }
         }
+
+        public class UseComparer : IEqualityComparer<SearchResult.Use>
+        {
+            public bool Equals(SearchResult.Use x, SearchResult.Use y)
+            {
+                return string.Equals(x.SampleLine, y.SampleLine, StringComparison.CurrentCultureIgnoreCase);
+            }
+
+            public int GetHashCode(SearchResult.Use obj)
+            {
+                return obj.SampleLine.ToLower().GetHashCode();
+            }
+        }
+
     }
 
 }

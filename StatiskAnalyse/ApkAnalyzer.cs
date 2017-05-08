@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using ICSharpCode.SharpZipLib.Core;
 using ICSharpCode.SharpZipLib.Zip;
@@ -30,6 +28,152 @@ namespace StatiskAnalyse
             "javax"
         };
 
+        public static string[] LinuxCommandList { get; } =
+        {
+            "adduser",
+            "arch",
+            "awk",
+            "bc",
+            "cal",
+            "cat",
+            "chdir",
+            "chgrp",
+            "chkconfig",
+            "chmod",
+            "chown",
+            "chroot",
+            "cksum",
+            "clear",
+            "cmp",
+            "comm",
+            "cp",
+            "cron",
+            "crontab",
+            "csplit",
+            "cut",
+            "date",
+            "dc",
+            "dd",
+            "df",
+            "diff",
+            "diff3",
+            "dir",
+            "dircolors",
+            "dirname",
+            "du",
+            "echo",
+            "ed",
+            "egrep",
+            "eject",
+            "env",
+            "expand",
+            "expr",
+            "factor",
+            "false",
+            "fdformat",
+            "fdisk",
+            "fgrep",
+            "find",
+            "fmt",
+            "fold",
+            "format",
+            "free",
+            "fsck",
+            "gawk",
+            "grep",
+            "groups",
+            "gzip",
+            "head",
+            "hostname",
+            "id",
+            "info",
+            "install",
+            "join",
+            "kill",
+            "less",
+            "ln",
+            "locate",
+            "logname",
+            "lpc",
+            "lpr",
+            "lprm",
+            "ls",
+            "man",
+            "mkdir",
+            "mkfifo",
+            "mknod",
+            "more",
+            "mount",
+            "mv",
+            "nice",
+            "nl",
+            "nohup",
+            "passwd",
+            "paste",
+            "pathchk",
+            "pr",
+            "printcap",
+            "printenv",
+            "printf",
+            "ps",
+            "pwd",
+            "quota",
+            "quotacheck",
+            "quotactl",
+            "ram",
+            "rcp",
+            "rm",
+            "rmdir",
+            "rpm",
+            "rsync",
+            "screen",
+            "sdiff",
+            "sed",
+            "select",
+            "seq",
+            "shutdown",
+            "sleep",
+            "sort",
+            "split",
+            "su",
+            "sum",
+            "symlink",
+            "sync",
+            "tac",
+            "tail",
+            "tar",
+            "tee",
+            "test",
+            "time",
+            "touch",
+            "top",
+            "traceroute",
+            "tr",
+            "true",
+            "tsort",
+            "tty",
+            "umount",
+            "uname",
+            "unexpand",
+            "uniq",
+            "units",
+            "unshar",
+            "useradd",
+            "usermod",
+            "users",
+            "uuencode",
+            "uudecode",
+            "vdir",
+            "watch",
+            "wc",
+            "whereis",
+            "which",
+            "who",
+            "whoami",
+            "xargs",
+            "yes"
+        };
+
         public static readonly string BakSmaliPath = Path.GetFullPath("../../TOOLS/baksmali-2.2.0.jar");
         public static readonly string AaptPah = Path.GetFullPath("C:\\Users\\Malte\\AppData\\Local\\Android\\sdk\\build-tools\\25.0.2\\aapt.exe");
         public static readonly string SavePath = Path.GetFullPath("/STAN");
@@ -37,6 +181,8 @@ namespace StatiskAnalyse
         public List<string> CriticalLibsUsed { get; } = new List<string>();
         public List<string> TrackersUsed { get; } = new List<string>();
         public List<string> PermissionsUsed { get; set; } = new List<string>();
+        public List<SearchResult.Use> LinuxCommands { get; set; } = new List<SearchResult.Use>();
+        public List<GoogleSearch> GoogleSearchResults { get; set; } = new List<GoogleSearch>();
         public List<SearchResult> Results { get; private set; }
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
@@ -46,6 +192,8 @@ namespace StatiskAnalyse
             File.WriteAllText(Path.Combine(SavePath, Name, "permissions.json"), JsonConvert.SerializeObject(PermissionsUsed, Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "libraries.json"), JsonConvert.SerializeObject(CriticalLibsUsed, Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "trackers.json"), JsonConvert.SerializeObject(TrackersUsed, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "googlesearch.json"), JsonConvert.SerializeObject(GoogleSearchResults, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "linuxCommands.json"), JsonConvert.SerializeObject(LinuxCommands, Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "javaClasses.json"), JsonConvert.SerializeObject(dangClass.Where(x => Results.Any(y => y.Pattern == x)), Formatting.Indented));
             File.WriteAllText(Path.Combine(SavePath, Name, "search.json"), JsonConvert.SerializeObject(Results.Where(r => r.Uses.Count != 0).OrderBy(r => r.Pattern), Formatting.Indented));
             Clear();
@@ -74,14 +222,31 @@ namespace StatiskAnalyse
         {
             var aa = InternalSmaliToolChain(path);
             aa.Results = aa.Root.FindUses(lookFor);
-            var sea = aa.Results.First(r => r.Pattern == "\".*\"")
-                .Uses.Where(u => u.SampleLine.Length > 16 && (u.SampleLine.IndexOf(" ") == -1 ||
-                                 u.SampleLine.IndexOf(" ") > 15) && !u.SampleLine.Contains("java") && !u.SampleLine.Contains("system") && !u.SampleLine.Contains("cordova") && !u.SampleLine.Contains("Lorg") && !u.SampleLine.Contains("android"))
-                .Distinct(new UseComparer());
-            var ent = sea.Select(x => new Tuple<string, double>(x.SampleLine, GetEntropy(x.SampleLine))).Where(x => x.Item2 > 3).OrderByDescending(x => x.Item2);
-            var adwad = ent.Take(3).Select(s => new GoogleSearch(s.Item1)).Where(gs => gs.Results < 1000).ToList();
+            aa.LinuxCommands = aa.Results.First(r => r.Pattern == "\".*\"").Uses
+                .Where(x => LinuxCommandList.Any(x.SampleLine.Contains)).ToList();
+
+            var stringSearchResults = aa.Results.First(r => r.Pattern == "\".*\"")
+                .Uses.Where(u => u.SampleLine.Length > 16 && (u.SampleLine.IndexOf(" ", StringComparison.Ordinal) == -1 ||
+                                                              u.SampleLine.IndexOf(" ", StringComparison.Ordinal) > 15) &&
+                                 !u.SampleLine.Contains("java") && !u.SampleLine.Contains("system") &&
+                                 !u.SampleLine.Contains("cordova") && !u.SampleLine.Contains("Lorg") &&
+                                 !u.SampleLine.Contains("android"))
+                .Distinct(new SearchResult.UseComparer());
+
+            var entropies = stringSearchResults
+                .Select(x => new Tuple<string, double>(x.SampleLine, GetEntropy(x.SampleLine))).Where(x => x.Item2 > 3)
+                .OrderByDescending(x => x.Item2);
+
+            var gss = MaxSearchesPerApp == -1
+                ? entropies.Select(s => new GoogleSearch(s.Item1)).ToList()
+                : entropies.Take(MaxSearchesPerApp).Select(s => new GoogleSearch(s.Item1)).ToList();
+
+            aa.GoogleSearchResults = gss;
             return aa;
         }
+
+
+        public static int MaxSearchesPerApp { get; set; } = 25;
 
         // Shannon entropy
         private static double GetEntropy(string s)
@@ -106,19 +271,6 @@ namespace StatiskAnalyse
             return result;
         }
 
-        class UseComparer : IEqualityComparer<SearchResult.Use>
-        {
-            public bool Equals(SearchResult.Use x, SearchResult.Use y)
-            {
-                return x.SampleLine.ToLower() == y.SampleLine.ToLower();
-            }
-
-            public int GetHashCode(SearchResult.Use obj)
-            {
-                return obj.SampleLine.ToLower().GetHashCode();
-            }
-        }
-
         private static ApkAnalysis InternalSmaliToolChain(string path)
         {
             Directory.CreateDirectory(SavePath);
@@ -127,7 +279,7 @@ namespace StatiskAnalyse
             var o = Path.Combine(d, "out");
 
 
-            aa.PermissionsUsed = AndroidXmlDecompress.ExtractPermissions(path);
+            aa.PermissionsUsed = AndroidPermissionExtracter.ExtractPermissions(path);
             if (!Directory.Exists(o))
                 BakSmali(path);
             
@@ -180,6 +332,7 @@ namespace StatiskAnalyse
                     aa.TrackersUsed.Add(tracker);
             }
         }
+
         private static void AnalyzeCryptoLibUse(ApkAnalysis aa)
         {
             foreach (var cLib in CriticalLibs)
@@ -207,35 +360,6 @@ namespace StatiskAnalyse
                 aa.CriticalLibsUsed.Add(saveCLib);
             }
         }
-        
-        private static void UnzipFile(string apkPath, string file)
-        {
-            if (!File.Exists(apkPath))
-                throw new FileNotFoundException("Not found", apkPath);
-            var dp = Path.Combine(SavePath, Path.GetFileNameWithoutExtension(apkPath));
-            Directory.CreateDirectory(dp);
-            ZipFile zf = null;
-            try
-            {
-                var fs = File.OpenRead(apkPath);
-                zf = new ZipFile(fs);
-                var zipEntry = zf.GetEntry(file);
-                var buffer = new byte[4096];
-                var zipStream = zf.GetInputStream(zipEntry);
-                dp = Path.Combine(dp, file);
-                using (var streamWriter = File.Create(dp))
-                    StreamUtils.Copy(zipStream, streamWriter, buffer);
-            }
-            finally
-            {
-                if (zf != null)
-                {
-                    zf.IsStreamOwner = true;
-                    zf.Close();
-                }
-            }
-        }
-        
         #endregion
     }
 }
