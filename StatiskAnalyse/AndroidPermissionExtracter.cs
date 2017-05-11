@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace StatiskAnalyse
 {
-    class AndroidPermissionExtracter
+    internal class AndroidPermissionExtracter
     {
         public static List<string> ExtractPermissions(string manifestPath)
         {
@@ -18,10 +18,11 @@ namespace StatiskAnalyse
             };
             var list = new List<string>();
             var p = Process.Start(pstart);
-            bool titleGotten = false;
+            var titleGotten = false;
             while (!p.StandardOutput.EndOfStream)
             {
-                var s = p.StandardOutput.ReadLine().Replace("uses-permission: name=", "").Replace("permission: ", "").Trim('\'');
+                var s = p.StandardOutput.ReadLine().Replace("uses-permission: name=", "").Replace("permission: ", "")
+                    .Trim('\'');
                 if (titleGotten)
                     list.Add(s);
                 else

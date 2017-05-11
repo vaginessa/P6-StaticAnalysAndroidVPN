@@ -17,20 +17,20 @@ namespace StatiskAnalyse
 
         public class Use
         {
+            public Use(ClassFile cf, int line, int col, string ll)
+            {
+                FoundIn = cf;
+                Line = line;
+                Index = col;
+                SampleLine = ll.Trim('"');
+            }
+
             [JsonIgnore]
             public ClassFile FoundIn { get; }
 
             public string File => FoundIn.FilePath;
             public int Index { get; }
             public int Line { get; set; }
-            
-            public Use(ClassFile cf, int line, int col, string ll)
-            {
-                FoundIn = cf;
-                Line = line;
-                Index = col;
-                SampleLine = ll;
-            }
 
             public string SampleLine { get; set; }
 
@@ -40,19 +40,17 @@ namespace StatiskAnalyse
             }
         }
 
-        public class UseComparer : IEqualityComparer<SearchResult.Use>
+        public class UseComparer : IEqualityComparer<Use>
         {
-            public bool Equals(SearchResult.Use x, SearchResult.Use y)
+            public bool Equals(Use x, Use y)
             {
                 return string.Equals(x.SampleLine, y.SampleLine, StringComparison.CurrentCultureIgnoreCase);
             }
 
-            public int GetHashCode(SearchResult.Use obj)
+            public int GetHashCode(Use obj)
             {
                 return obj.SampleLine.ToLower().GetHashCode();
             }
         }
-
     }
-
 }

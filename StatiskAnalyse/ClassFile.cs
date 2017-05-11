@@ -17,6 +17,7 @@ namespace StatiskAnalyse
                 Source = File.ReadAllLines(path)
             };
         }
+
         public override string ToString()
         {
             return Name;

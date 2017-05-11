@@ -21,14 +21,10 @@ namespace StatiskAnalyse
             };
             var dirs = Directory.EnumerateDirectories(rootDir);
             foreach (var d in dirs)
-            {
                 retVal.Directories.Add(LoadFromDirectory(d, ext));
-            }
             var files = Directory.EnumerateFiles(rootDir, "*." + ext);
             foreach (var f in files)
-            {
                 retVal.Files.Add(ClassFile.FromPath(f));
-            }
 
 
             return retVal;
@@ -52,7 +48,7 @@ namespace StatiskAnalyse
             });
             return retVal;
         }
-        
+
         public List<SearchResult> FindUses(params Regex[] patterns)
         {
             var l = new object();
@@ -81,7 +77,7 @@ namespace StatiskAnalyse
                 retVal.AddRange(FindOccurencesInString(classFile, pattern));
             return retVal;
         }
-    
+
         private static IEnumerable<SearchResult.Use> FindOccurencesInString(ClassFile cf, string searchFor)
         {
             for (var li = 0; li < cf.Source.Length; li++)
