@@ -39,7 +39,7 @@ namespace StatiskAnalyse
             var searchFor = new[]
             {
                 new Regex("\".*\"", RegexOptions.Compiled),
-                new Regex("[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}", RegexOptions.Compiled),
+                new Regex("[0-9]{1,3}(\\.[0-9]{1,3}){3}", RegexOptions.Compiled),
                 new Regex("Ljava/security/SecureClassLoader", RegexOptions.Compiled),
                 new Regex("Ljava/net/URLClassLoader", RegexOptions.Compiled),
                 new Regex("Ljava/lang/Runtime;->exec", RegexOptions.Compiled)

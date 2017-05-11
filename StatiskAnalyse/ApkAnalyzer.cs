@@ -320,14 +320,10 @@ namespace StatiskAnalyse
             AnalyzeCryptoLibUse(aa);
             return aa;
         }
-
-
-
+        
         private static bool IsObfuscatedHelper(ClassFileDirectory cfd)
         {
-            if (cfd.Files.Any(f => f.Name == "a"))
-                return true;
-            return cfd.Directories.Any(IsObfuscatedHelper);
+            return cfd.Files.Any(f => f.Name == "a") || cfd.Directories.Any(IsObfuscatedHelper);
         }
 
         private static void BakSmali(string inputDex, string output)
