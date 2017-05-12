@@ -1,14 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace StatiskAnalyse
 {
     internal class AndroidPermissionExtracter
     {
+        private static readonly Regex PermRegex = new Regex("android.permission.([A-Z_]+)", RegexOptions.Compiled);
         public static List<string> ExtractPermissions(string manifestPath)
         {
-            var cmd = $"dump permissions \"{manifestPath}\"";
+            var cmd = $"dump xmltree \"{manifestPath}\" AndroidManifest.xml";
             var pstart = new ProcessStartInfo(ApkAnalysis.AaptPah)
             {
                 Arguments = cmd,
@@ -18,17 +21,15 @@ namespace StatiskAnalyse
             };
             var list = new List<string>();
             var p = Process.Start(pstart);
-            var titleGotten = false;
             while (!p.StandardOutput.EndOfStream)
             {
-                var s = p.StandardOutput.ReadLine().Replace("uses-permission: name=", "").Replace("permission: ", "")
-                    .Trim('\'');
-                if (titleGotten)
-                    list.Add(s);
-                else
-                    titleGotten = true;
+                var s = p.StandardOutput.ReadLine();
+                var m = PermRegex.Match(s);
+                if (m.Success)
+                    list.Add(m.Groups[1].Value);
             }
             p.WaitForExit();
+            
             list = list.Distinct().ToList();
             return list;
         }
