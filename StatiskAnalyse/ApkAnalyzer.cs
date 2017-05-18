@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
@@ -181,6 +182,7 @@ namespace StatiskAnalyse
         public List<SearchResult.Use> LinuxCommands { get; set; } = new List<SearchResult.Use>();
         public List<GoogleSearch> GoogleSearchResults { get; set; } = new List<GoogleSearch>();
         public List<Tuple<string, double>> HighEntropyWords { get; set; } = new List<Tuple<string, double>>();
+        private List<Tuple<string, string>> IPs { get; set; } = new List<Tuple<string, string>>();
         public List<SearchResult> Results { get; private set; }
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
@@ -196,6 +198,10 @@ namespace StatiskAnalyse
             if (CriticalLibsUsed.Count != 0)
                 File.WriteAllText(Path.Combine(SavePath, Name, "libraries.json"),
                     JsonConvert.SerializeObject(CriticalLibsUsed, Formatting.Indented));
+
+            if (IPs.Count != 0)
+                File.WriteAllText(Path.Combine(SavePath, Name, "ips.json"),
+                    JsonConvert.SerializeObject(IPs.OrderBy(x => x.Item2), Formatting.Indented));
 
             if (TrackersUsed.Count != 0)
                 File.WriteAllText(Path.Combine(SavePath, Name, "trackers.json"),
@@ -213,10 +219,6 @@ namespace StatiskAnalyse
                 File.WriteAllText(Path.Combine(SavePath, Name, "linuxCommands.json"),
                     JsonConvert.SerializeObject(LinuxCommands, Formatting.Indented));
 
-            File.WriteAllText(Path.Combine(SavePath, Name, "search.json"),
-                JsonConvert.SerializeObject(Results.Where(r => r.Pattern != "\".*\"" && r.Uses.Count != 0).OrderBy(r => r.Pattern),
-                    Formatting.Indented));
-
             File.WriteAllText(Path.Combine(SavePath, Name, "stringsearch.json"),
                 JsonConvert.SerializeObject(Results.Where(r => r.Pattern == "\".*\"" && r.Uses.Count != 0).OrderBy(r => r.Pattern),
                     Formatting.Indented));
@@ -230,6 +232,7 @@ namespace StatiskAnalyse
             CriticalLibsUsed.Clear();
             TrackersUsed.Clear();
             LinuxCommands.Clear();
+            IPs.Clear();
             GoogleSearchResults.Clear();
             HighEntropyWords.Clear();
             PermissionsUsed.Clear();
@@ -249,20 +252,34 @@ namespace StatiskAnalyse
         {
             var aa = InternalSmaliToolChain(path);
             aa.Results = aa.Root.FindUses(lookFor);
-            aa.LinuxCommands = aa.Results.First(r => r.Pattern == "\".*\"").Uses
+
+            var ipv4s = aa.Results.FirstOrDefault(r => r.Pattern == "[0-9]{1,3}(\\.[0-9]{1,3}){3}");
+            if (ipv4s != null)
+            {
+                aa.Results.Remove(ipv4s);
+                var ips = ipv4s.Uses.Where(u => IPAddress.TryParse(u.SampleLine, out IPAddress ip)).Select(i => i.SampleLine);
+                aa.IPs = ips.Select(i => new Tuple<string, string>(i, GetCountry(i))).Distinct().ToList();
+            }
+
+            var strings = aa.Results.FirstOrDefault(r => r.Pattern == "\".*\"");
+            aa.LinuxCommands = strings.Uses
                 .Where(x => LinuxCommandList.Any(y => x.SampleLine == y || x.SampleLine.StartsWith(y + " "))).ToList();
 
-            var stringSearchResults = aa.Results.First(r => r.Pattern == "\".*\"")
-                .Uses.Where(u => u.SampleLine.Length > 16 &&
-                                 (u.SampleLine.IndexOf(" ", StringComparison.Ordinal) == -1 ||
-                                  u.SampleLine.IndexOf(" ", StringComparison.Ordinal) > 15) &&
-                                 !u.SampleLine.Contains("java") && !u.SampleLine.Contains("system") &&
-                                 !u.SampleLine.Contains("cordova") && !u.SampleLine.Contains("Lorg") &&
-                                 !u.SampleLine.Contains("android") && !u.SampleLine.Contains("facebook"))
+            var stringSearchResults = strings.Uses.Where(u => u.SampleLine.Length > 16 &&
+                                                              (u.SampleLine.IndexOf(" ", StringComparison.Ordinal) ==
+                                                               -1 ||
+                                                               u.SampleLine.IndexOf(" ", StringComparison.Ordinal) >
+                                                               15) &&
+                                                              !u.SampleLine.Contains("java") &&
+                                                              !u.SampleLine.Contains("system") &&
+                                                              !u.SampleLine.Contains("cordova") &&
+                                                              !u.SampleLine.Contains("Lorg") &&
+                                                              !u.SampleLine.Contains("android") &&
+                                                              !u.SampleLine.Contains("facebook"))
                 .Distinct(new SearchResult.UseComparer());
 
             aa.HighEntropyWords = stringSearchResults
-                .Where(x => !x.SampleLine.Contains(" ") && !x.SampleLine.Contains("abcdefghijkmnopqrstxyz"))
+                .Where(x => !x.SampleLine.Contains(" ") && !x.SampleLine.Contains("abcdefghijklmnopqrstuvwxyz"))
                 .Select(x => new Tuple<string, double>(x.SampleLine, GetEntropy(x.SampleLine)))
                 .Where(x => x.Item2 > LowestInterestingEntropy)
                 .OrderByDescending(x => x.Item2)
@@ -274,7 +291,7 @@ namespace StatiskAnalyse
 
             aa.Stats = new ApkStats
             {
-                IsObfuscated = IsObfuscatedHelper(aa.Root),
+                IsObfuscated = IsObfuscated(aa.Root),
                 TrackerCount = aa.TrackersUsed.Count,
                 HighEntropyWordCount = aa.HighEntropyWords.Count,
                 LinuxCommandCount = aa.LinuxCommands.Count
@@ -283,8 +300,6 @@ namespace StatiskAnalyse
             return aa;
         }
 
-
-        // Shannon entropy
         private static double GetEntropy(string s)
         {
             var map = new Dictionary<char, int>();
@@ -298,7 +313,7 @@ namespace StatiskAnalyse
             var len = s.Length;
             foreach (var item in map)
             {
-                var frequency = (double) item.Value / len;
+                var frequency = (double)item.Value / len;
                 result -= frequency * (Math.Log(frequency) / Math.Log(2));
             }
 
@@ -308,10 +323,12 @@ namespace StatiskAnalyse
         private static ApkAnalysis InternalSmaliToolChain(string path)
         {
             Directory.CreateDirectory(SavePath);
-            var aa = new ApkAnalysis {Name = Path.GetFileNameWithoutExtension(path)};
-            var o = Path.Combine(SavePath, aa.Name, "out");
-            
-            aa.PermissionsUsed = AndroidPermissionExtracter.ExtractPermissions(path);
+            var aa = new ApkAnalysis { Name = Path.GetFileNameWithoutExtension(path) };
+            var dir = Path.Combine(SavePath, aa.Name);
+            var o = Path.Combine(dir, "out");
+            Directory.CreateDirectory(dir);
+
+            aa.PermissionsUsed = AndroidPermissionExtracter.ExtractPermissions(path, dir);
             if (!Directory.Exists(o))
                 BakSmali(path, o);
 
@@ -320,10 +337,10 @@ namespace StatiskAnalyse
             AnalyzeCryptoLibUse(aa);
             return aa;
         }
-        
-        private static bool IsObfuscatedHelper(ClassFileDirectory cfd)
+
+        private static bool IsObfuscated(ClassFileDirectory cfd)
         {
-            return cfd.Files.Any(f => f.Name == "a") || cfd.Directories.Any(IsObfuscatedHelper);
+            return cfd.Files.Any(f => f.Name == "a") || cfd.Directories.Any(IsObfuscated);
         }
 
         private static void BakSmali(string inputDex, string output)
@@ -398,6 +415,16 @@ namespace StatiskAnalyse
             public int TrackerCount { get; set; }
             public int HighEntropyWordCount { get; set; }
             public int LinuxCommandCount { get; set; }
+        }
+        private static WebClient _wc = new WebClient();
+
+        private static string GetCountry(string ip)
+        {
+            if (ip == "127.0.0.1")
+                return "localhost";
+            var json = _wc.DownloadString("https://freegeoip.net/json/" + ip);
+            var deez = JsonConvert.DeserializeObject<FreeGeoIpResponse>(json);
+            return deez.country_name;
         }
     }
 }

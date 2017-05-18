@@ -9,9 +9,6 @@ namespace StatiskAnalyse
     {
         private static void Main(string[] args)
         {
-            var tb = AndroidPermissionExtracter.ExtractPermissions(
-                "C:\\Users\\Malte\\Desktop\\apks\\TunnelBear VPN_vv139_apkpure.com.apk");
-
             GoogleSearch.ApiKey = "AIzaSyDrqFQq2jnMtCtiNPiI5D6KDCWJT_Fyrt4";
             ApkAnalysis.LowestInterestingEntropy = 4.75;
             ApkAnalysis.MaxSearchesPerApp = 1;

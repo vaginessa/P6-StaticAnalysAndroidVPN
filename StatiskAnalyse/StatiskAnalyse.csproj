@@ -73,6 +73,7 @@
     <Compile Include="ApkAnalyzer.cs" />
     <Compile Include="ClassFile.cs" />
     <Compile Include="ClassFileDirectory.cs" />
+    <Compile Include="FreeGeoIpResponse.cs" />
     <Compile Include="GoogleSearch.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
