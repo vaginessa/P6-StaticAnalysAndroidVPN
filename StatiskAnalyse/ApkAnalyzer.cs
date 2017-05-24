@@ -179,10 +179,10 @@ namespace StatiskAnalyse
         public List<string> CriticalLibsUsed { get; } = new List<string>();
         public List<string> TrackersUsed { get; } = new List<string>();
         public List<string> PermissionsUsed { get; set; } = new List<string>();
-        public List<SearchResult.Use> LinuxCommands { get; set; } = new List<SearchResult.Use>();
+        public List<Use> LinuxCommands { get; set; } = new List<Use>();
         public List<GoogleSearch> GoogleSearchResults { get; set; } = new List<GoogleSearch>();
-        public List<Tuple<string, double>> HighEntropyWords { get; set; } = new List<Tuple<string, double>>();
-        private List<Tuple<string, string>> IPs { get; set; } = new List<Tuple<string, string>>();
+        public List<EntropyResult> HighEntropyWords { get; set; } = new List<EntropyResult>();
+        private List<IpSearchResult> IPs { get; set; } = new List<IpSearchResult>();
         public List<SearchResult> Results { get; private set; }
         public ClassFileDirectory Root { get; private set; }
         public string Name { get; private set; }
@@ -201,7 +201,7 @@ namespace StatiskAnalyse
 
             if (IPs.Count != 0)
                 File.WriteAllText(Path.Combine(SavePath, Name, "ips.json"),
-                    JsonConvert.SerializeObject(IPs.OrderBy(x => x.Item2), Formatting.Indented));
+                    JsonConvert.SerializeObject(IPs.OrderBy(x => x.Country), Formatting.Indented));
 
             if (TrackersUsed.Count != 0)
                 File.WriteAllText(Path.Combine(SavePath, Name, "trackers.json"),
@@ -238,8 +238,7 @@ namespace StatiskAnalyse
             PermissionsUsed.Clear();
             Results.Clear();
         }
-
-        #region BakSmali toolchain
+        
 
         public static ApkAnalysis LoadApkBakSmali(string path, params string[] lookFor)
         {
@@ -247,6 +246,8 @@ namespace StatiskAnalyse
             aa.Results = aa.Root.FindUses(lookFor);
             return aa;
         }
+
+        
 
         public static ApkAnalysis LoadApkBakSmali(string path, params Regex[] lookFor)
         {
@@ -256,9 +257,8 @@ namespace StatiskAnalyse
             var ipv4s = aa.Results.FirstOrDefault(r => r.Pattern == "[0-9]{1,3}(\\.[0-9]{1,3}){3}");
             if (ipv4s != null)
             {
-                aa.Results.Remove(ipv4s);
-                var ips = ipv4s.Uses.Where(u => IPAddress.TryParse(u.SampleLine, out IPAddress ip)).Select(i => i.SampleLine);
-                aa.IPs = ips.Select(i => new Tuple<string, string>(i, GetCountry(i))).Distinct().ToList();
+                var ips = ipv4s.Uses.Where(u => IPAddress.TryParse(u.SampleLine, out IPAddress ip));
+                aa.IPs = ips.Select(i => new IpSearchResult(i.SampleLine, GetCountry(i.SampleLine), i.File, i.Line, i.Index)).Distinct().ToList();
             }
 
             var strings = aa.Results.FirstOrDefault(r => r.Pattern == "\".*\"");
@@ -276,25 +276,26 @@ namespace StatiskAnalyse
                                                               !u.SampleLine.Contains("Lorg") &&
                                                               !u.SampleLine.Contains("android") &&
                                                               !u.SampleLine.Contains("facebook"))
-                .Distinct(new SearchResult.UseComparer());
+                .Distinct(new Use.UseComparer());
 
             aa.HighEntropyWords = stringSearchResults
                 .Where(x => !x.SampleLine.Contains(" ") && !x.SampleLine.Contains("abcdefghijklmnopqrstuvwxyz"))
-                .Select(x => new Tuple<string, double>(x.SampleLine, GetEntropy(x.SampleLine)))
-                .Where(x => x.Item2 > LowestInterestingEntropy)
-                .OrderByDescending(x => x.Item2)
+                .Select(x => new EntropyResult(x.SampleLine, GetEntropy(x.SampleLine), x.File, x.Line, x.Index))
+                .Where(x => x.Entropy > LowestInterestingEntropy)
+                .OrderByDescending(x => x.Entropy)
                 .ToList();
 
             aa.GoogleSearchResults = MaxSearchesPerApp == -1
-                ? aa.HighEntropyWords.Select(s => new GoogleSearch(s.Item1)).Where(g => g.Results != -1).ToList()
-                : aa.HighEntropyWords.Take(MaxSearchesPerApp).Select(s => new GoogleSearch(s.Item1)).Where(g => g.Results != -1).ToList();
+                ? aa.HighEntropyWords.Select(s => new GoogleSearch(s.Word)).Where(g => g.Results != -1).ToList()
+                : aa.HighEntropyWords.Take(MaxSearchesPerApp).Select(s => new GoogleSearch(s.Word)).Where(g => g.Results != -1).ToList();
 
             aa.Stats = new ApkStats
             {
                 IsObfuscated = IsObfuscated(aa.Root),
                 TrackerCount = aa.TrackersUsed.Count,
                 HighEntropyWordCount = aa.HighEntropyWords.Count,
-                LinuxCommandCount = aa.LinuxCommands.Count
+                LinuxCommandCount = aa.LinuxCommands.Count,
+                HardcodedIPs = aa.IPs.Count
             };
 
             return aa;
@@ -406,25 +407,31 @@ namespace StatiskAnalyse
                 aa.CriticalLibsUsed.Add(saveCLib);
             }
         }
-
-        #endregion
-
-        internal class ApkStats
-        {
-            public bool IsObfuscated { get; set; }
-            public int TrackerCount { get; set; }
-            public int HighEntropyWordCount { get; set; }
-            public int LinuxCommandCount { get; set; }
-        }
+        
         private static WebClient _wc = new WebClient();
 
         private static string GetCountry(string ip)
         {
             if (ip == "127.0.0.1")
                 return "localhost";
+            if (ip == "0.0.0.0")
+                return "all local interfaces";
+            if (ip.StartsWith("10."))
+                return "local";
+            if (_dnsServerIps.Contains(ip))
+                return "DNS server";
             var json = _wc.DownloadString("https://freegeoip.net/json/" + ip);
             var deez = JsonConvert.DeserializeObject<FreeGeoIpResponse>(json);
             return deez.country_name;
         }
+
+        private static readonly string[] _dnsServerIps = new[]
+        {
+            "8.8.8.8",
+            "8.8.4.4",
+            "8.8.0.0",
+            "4.2.2.2",
+            "4.2.2.4"
+        };
     }
 }

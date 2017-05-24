@@ -52,7 +52,7 @@ namespace StatiskAnalyse
 
         private static void PerformAnalysis(string apkFolder, Regex[] regexes)
         {
-            var apks = Directory.EnumerateFiles(apkFolder, "*.apk");
+            var apks = Directory.EnumerateFiles(apkFolder, "*.apk").Where(x => x.Contains("Hotspot Shield Free") || x.Contains("Amaze") || x.Contains("Tunnel") || x.Contains("Ultrasurf"));
             int done = 0, total = apks.Count();
             var tot = 100.0 / total;
             var starttime = DateTime.UtcNow;

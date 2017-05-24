@@ -71,18 +71,24 @@
   <ItemGroup>
     <Compile Include="AndroidPermissionExtracter.cs" />
     <Compile Include="ApkAnalyzer.cs" />
+    <Compile Include="ResultWrappers\ApkStats.cs" />
     <Compile Include="ClassFile.cs" />
     <Compile Include="ClassFileDirectory.cs" />
+    <Compile Include="ResultWrappers\EntropyResult.cs" />
+    <Compile Include="ResultWrappers\FileResultWrapper.cs" />
     <Compile Include="FreeGeoIpResponse.cs" />
-    <Compile Include="GoogleSearch.cs" />
+    <Compile Include="ResultWrappers\GoogleSearch.cs" />
+    <Compile Include="ResultWrappers\IpSearchResult.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SearchResult.cs" />
+    <Compile Include="ResultWrappers\SearchResult.cs" />
+    <Compile Include="ResultWrappers\Use.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

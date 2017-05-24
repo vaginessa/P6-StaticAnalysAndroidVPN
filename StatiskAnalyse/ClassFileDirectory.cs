@@ -68,9 +68,9 @@ namespace StatiskAnalyse
             return retVal;
         }
 
-        private static IEnumerable<SearchResult.Use> FindUsesInDir(ClassFileDirectory dir, string pattern)
+        private static IEnumerable<Use> FindUsesInDir(ClassFileDirectory dir, string pattern)
         {
-            var retVal = new List<SearchResult.Use>();
+            var retVal = new List<Use>();
             foreach (var classFileDirectory in dir.Directories)
                 retVal.AddRange(FindUsesInDir(classFileDirectory, pattern));
             foreach (var classFile in dir.Files)
@@ -78,7 +78,7 @@ namespace StatiskAnalyse
             return retVal;
         }
 
-        private static IEnumerable<SearchResult.Use> FindOccurencesInString(ClassFile cf, string searchFor)
+        private static IEnumerable<Use> FindOccurencesInString(ClassFile cf, string searchFor)
         {
             for (var li = 0; li < cf.Source.Length; li++)
             {
@@ -86,16 +86,16 @@ namespace StatiskAnalyse
                 var i = l.IndexOf(searchFor);
                 while (i != -1)
                 {
-                    yield return new SearchResult.Use(cf, li + 1, i + 1, l);
+                    yield return new Use(cf, li + 1, i + 1, l);
                     i = l.IndexOf(searchFor, i);
                 }
             }
         }
 
 
-        private static IEnumerable<SearchResult.Use> FindUsesInDir(ClassFileDirectory dir, Regex pattern)
+        private static IEnumerable<Use> FindUsesInDir(ClassFileDirectory dir, Regex pattern)
         {
-            var retVal = new List<SearchResult.Use>();
+            var retVal = new List<Use>();
             foreach (var classFileDirectory in dir.Directories)
                 retVal.AddRange(FindUsesInDir(classFileDirectory, pattern));
             foreach (var classFile in dir.Files)
@@ -103,7 +103,7 @@ namespace StatiskAnalyse
             return retVal;
         }
 
-        private static IEnumerable<SearchResult.Use> FindOccurencesInString(ClassFile cf, Regex searchFor)
+        private static IEnumerable<Use> FindOccurencesInString(ClassFile cf, Regex searchFor)
         {
             for (var i = 0; i < cf.Source.Length; i++)
             {
@@ -111,7 +111,7 @@ namespace StatiskAnalyse
                 var m = searchFor.Matches(l);
                 if (m.Count == 0) continue;
                 foreach (Match match in m)
-                    yield return new SearchResult.Use(cf, i + 1, match.Index + 1, match.Value);
+                    yield return new Use(cf, i + 1, match.Index + 1, match.Value);
             }
         }
 
