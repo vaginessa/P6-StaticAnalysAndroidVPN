@@ -1,10 +1,33 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace StatiskAnalyse
 {
+    //public abstract class SearchHandler<TSearchResult> where TSearchResult : FileResultWrapper
+    //{
+    //    private Func<List<TSearchResult>, List<TSearchResult>> _filter;
+
+    //    protected SearchHandler(Regex regex, Func<List<TSearchResult>, List<TSearchResult>> filter)
+    //    {
+    //        Regex = regex;
+    //        _filter = filter;
+    //    }
+    //    public Regex Regex { get; }
+    //    public List<TSearchResult> Results { get; } = new List<TSearchResult>();
+
+    //    protected static void SaveResults(string outputname, string apkName, object resultContainer)
+    //    {
+
+    //        File.WriteAllText(Path.Combine(ApkAnalysis.SavePath, apkName, outputname + ".json"),
+    //            JsonConvert.SerializeObject(resultContainer, Formatting.Indented));
+    //    }
+    //}
+    
+
     internal class Program
     {
         private static void Main(string[] args)
@@ -39,9 +62,11 @@ namespace StatiskAnalyse
 
             var searchFor = new[]
             {
-                new Regex("\".*\"", RegexOptions.Compiled),
+                new Regex("\".+\"", RegexOptions.Compiled),
                 new Regex("[0-9]{1,3}(\\.[0-9]{1,3}){3}", RegexOptions.Compiled),
+                new Regex("https?:\\/\\/([\\da-z\\.-]+)\\.([a-z\\.]{2,6})([\\/\\w \\.-]*)*\\/?", RegexOptions.Compiled),
                 new Regex("Ljava/security/SecureClassLoader", RegexOptions.Compiled),
+                new Regex("AccountManager;->get", RegexOptions.Compiled),
                 new Regex("Ljava/net/URLClassLoader", RegexOptions.Compiled),
                 new Regex("Ljava/lang/Runtime;->exec", RegexOptions.Compiled)
             };

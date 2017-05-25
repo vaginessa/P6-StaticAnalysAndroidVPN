@@ -13,9 +13,10 @@ namespace StatiskAnalyse
     {
         internal static readonly string[] Trackers;
 
-        public static string BakSmaliPath = Path.GetFullPath("../../TOOLS/baksmali-2.2.0.jar");
+        public static string BakSmaliPath = Path.GetFullPath("../../TOOLS/baksmali-2.2.1.jar");
 
-        public static string AaptPah = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Android\\sdk\\build-tools\\25.0.2\\aapt.exe";
+        public static string AaptPah = "../../TOOLS/aapt.exe";
+        //public static string AaptPah = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Android\\sdk\\build-tools\\25.0.2\\aapt.exe";
 
         public static string SavePath = Path.GetFullPath("/STAN");
 
@@ -195,33 +196,26 @@ namespace StatiskAnalyse
             File.WriteAllText(Path.Combine(SavePath, Name, "stats.json"),
                 JsonConvert.SerializeObject(Stats, Formatting.Indented));
 
-            if (CriticalLibsUsed.Count != 0)
-                File.WriteAllText(Path.Combine(SavePath, Name, "libraries.json"),
-                    JsonConvert.SerializeObject(CriticalLibsUsed, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "libraries.json"),
+                JsonConvert.SerializeObject(CriticalLibsUsed, Formatting.Indented));
 
-            if (IPs.Count != 0)
-                File.WriteAllText(Path.Combine(SavePath, Name, "ips.json"),
-                    JsonConvert.SerializeObject(IPs.OrderBy(x => x.Country), Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "ips.json"),
+                JsonConvert.SerializeObject(IPs.OrderBy(x => x.Country), Formatting.Indented));
 
-            if (TrackersUsed.Count != 0)
-                File.WriteAllText(Path.Combine(SavePath, Name, "trackers.json"),
-                    JsonConvert.SerializeObject(TrackersUsed, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "trackers.json"),
+                JsonConvert.SerializeObject(TrackersUsed, Formatting.Indented));
 
-            if (GoogleSearchResults.Count != 0)
-                File.WriteAllText(Path.Combine(SavePath, Name, "googlesearch.json"),
-                    JsonConvert.SerializeObject(GoogleSearchResults, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "googlesearch.json"),
+                JsonConvert.SerializeObject(GoogleSearchResults, Formatting.Indented));
 
-            if (HighEntropyWords.Count != 0)
-                File.WriteAllText(Path.Combine(SavePath, Name, "highentropywords.json"),
-                    JsonConvert.SerializeObject(HighEntropyWords, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "highentropywords.json"),
+                JsonConvert.SerializeObject(HighEntropyWords, Formatting.Indented));
 
-            if (LinuxCommands.Count != 0)
-                File.WriteAllText(Path.Combine(SavePath, Name, "linuxCommands.json"),
-                    JsonConvert.SerializeObject(LinuxCommands, Formatting.Indented));
+            File.WriteAllText(Path.Combine(SavePath, Name, "linuxcommands.json"),
+                JsonConvert.SerializeObject(LinuxCommands, Formatting.Indented));
 
             File.WriteAllText(Path.Combine(SavePath, Name, "stringsearch.json"),
-                JsonConvert.SerializeObject(Results.Where(r => r.Pattern == "\".*\"" && r.Uses.Count != 0).OrderBy(r => r.Pattern),
-                    Formatting.Indented));
+                JsonConvert.SerializeObject(Results, Formatting.Indented));
             Clear();
         }
 
@@ -247,7 +241,16 @@ namespace StatiskAnalyse
             return aa;
         }
 
-        
+        //public static ApkAnalysis LoadApkBakSmali(string path, List<SearchHandler<Use>> lookFor)
+        //{
+        //    var aa = InternalSmaliToolChain(path);
+        //    aa.StringConstants = aa.Root.FindUses(new Regex("\".+\"", RegexOptions.Compiled));
+        //    aa.Results = aa.Root.FindUses(lookFor);
+        //    return aa;
+        //}
+
+        public List<SearchResult> StringConstants { get; set; }
+
 
         public static ApkAnalysis LoadApkBakSmali(string path, params Regex[] lookFor)
         {
@@ -261,7 +264,7 @@ namespace StatiskAnalyse
                 aa.IPs = ips.Select(i => new IpSearchResult(i.SampleLine, GetCountry(i.SampleLine), i.File, i.Line, i.Index)).Distinct().ToList();
             }
 
-            var strings = aa.Results.FirstOrDefault(r => r.Pattern == "\".*\"");
+            var strings = aa.Results.FirstOrDefault(r => r.Pattern == "\".+\"");
             aa.LinuxCommands = strings.Uses
                 .Where(x => LinuxCommandList.Any(y => x.SampleLine == y || x.SampleLine.StartsWith(y + " "))).ToList();
 

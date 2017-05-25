@@ -6,4 +6,6 @@ namespace StatiskAnalyse
         public int Line { get; set; }
         public int Index { get; set; }
     }
+
+
 }

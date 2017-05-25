@@ -120,5 +120,21 @@ namespace StatiskAnalyse
         {
             return Name;
         }
+
+        //public List<SearchResult> FindUses(List<SearchHandler<Use>> lookFor)
+        //{
+        //    var retVal = new List<SearchResult>();
+        //    Parallel.ForEach(lookFor, p =>
+        //    {
+        //        var pattern = p.Regex;
+        //        var e = new SearchResult
+        //        {
+        //            Pattern = pattern.ToString()
+        //        };
+        //        e.Uses.AddRange(FindUsesInDir(this, pattern));
+        //        p.Results.Add(e);
+        //    });
+        //    return retVal;
+        //}
     }
 }
